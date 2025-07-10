@@ -4,31 +4,56 @@ stages:
 
 variables:
   CMAKE_BUILD_TYPE: "Release"
-  VCPKG_ROOT: "/vcpkg"
 
-# Default Windows build configuration
+# Cache configuration for vcpkg packages
+.cache_vcpkg_windows: &cache_vcpkg_windows
+  cache:
+    key: "vcpkg-windows-$CI_COMMIT_REF_SLUG"
+    paths:
+      - C:\vcpkg\installed\
+      - C:\vcpkg\buildtrees\
+      - C:\vcpkg\downloads\
+    policy: pull-push
+
+.cache_vcpkg_linux: &cache_vcpkg_linux
+  cache:
+    key: "vcpkg-linux-$CI_COMMIT_REF_SLUG"
+    paths:
+      - /vcpkg/installed/
+      - /vcpkg/buildtrees/
+      - /vcpkg/downloads/
+    policy: pull-push
+
+# Windows build configuration (native Windows 10 runner)
 .windows_template: &windows_template
-  # Use Windows container with Visual Studio Build Tools
-  image: mcr.microsoft.com/windows/servercore:ltsc2022
+  tags:
+    - windows
+    - shell
+  <<: *cache_vcpkg_windows
+  variables:
+    VCPKG_ROOT: "C:\\vcpkg"
   before_script:
-    # Install chocolatey for package management
-    - Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-    # Install git, cmake, and Visual Studio Build Tools
-    - choco install -y git cmake visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools"
-    # Install vcpkg
-    - git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
-    - C:\vcpkg\bootstrap-vcpkg.bat
+    # Check if vcpkg exists, if not clone it
+    - if (!(Test-Path "C:\vcpkg")) { git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg }
+    # Bootstrap vcpkg if not already done
+    - if (!(Test-Path "C:\vcpkg\vcpkg.exe")) { C:\vcpkg\bootstrap-vcpkg.bat }
     - $env:VCPKG_ROOT = "C:\vcpkg"
     - $env:PATH += ";C:\vcpkg"
 
-# Linux build configuration (alternative)
+# Linux build configuration
 .linux_template: &linux_template
-  image: ubuntu:22.04
+  image: ubuntu:24.04
+  <<: *cache_vcpkg_linux
+  variables:
+    VCPKG_ROOT: "/vcpkg"
   before_script:
     - apt-get update -qq && apt-get install -y -qq git curl zip unzip tar cmake build-essential pkg-config
-    - git clone https://github.com/Microsoft/vcpkg.git /vcpkg
-    - /vcpkg/bootstrap-vcpkg.sh
+    # Check if vcpkg exists, if not clone it
+    - if [ ! -d "/vcpkg" ]; then git clone https://github.com/Microsoft/vcpkg.git /vcpkg; fi
+    # Bootstrap vcpkg if not already done
+    - if [ ! -f "/vcpkg/vcpkg" ]; then /vcpkg/bootstrap-vcpkg.sh; fi
     - export VCPKG_ROOT=/vcpkg
+    - export PATH=$PATH:/vcpkg
 
 build_windows:
   <<: *windows_template
@@ -70,7 +95,7 @@ test_windows:
     - main
     - merge_requests
 
-# Linux alternative (uncomment to use Linux instead of Windows)
+# Linux build and test
 build_linux:
   <<: *linux_template
   stage: build
@@ -81,7 +106,6 @@ build_linux:
     paths:
       - build/Release/
     expire_in: 1 hour
-  when: manual
   only:
     - master
     - main
@@ -98,7 +122,6 @@ test_linux:
     - echo "Running GDAL-PROJ test..."
     - ./testcmd
     - echo "Test completed successfully!"
-  when: manual
   only:
     - master
     - main
