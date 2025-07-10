@@ -57,7 +57,28 @@ endif()
 # Consider position-independent code for all targets (especially for shared libs)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_executable(${PROJECT_NAME}cmd main.cpp hash.cpp)
+# Define source files
+set(SOURCES
+    main.cpp
+    hash.cpp
+    src/platform_utils.cpp
+    src/gdal_manager.cpp
+    src/coordinate_transform.cpp
+    src/geotiff_analyzer.cpp
+    src/system_info.cpp
+)
+
+# Define header files for IDE organization
+set(HEADERS
+    hash.h
+    src/platform_utils.h
+    src/gdal_manager.h
+    src/coordinate_transform.h
+    src/geotiff_analyzer.h
+    src/system_info.h
+)
+
+add_executable(${PROJECT_NAME}cmd ${SOURCES} ${HEADERS})
 
 # Find and link dependencies from vcpkg
 find_package(Threads REQUIRED)
