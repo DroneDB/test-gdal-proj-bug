@@ -7,6 +7,7 @@
 #include "src/system_info.h"
 #include "src/geotiff_analyzer.h"
 #include "src/gdaltiler.h"
+#include "src/thumbs.h"
 
 /**
  * Test GDALTiler functionality with specific tile coordinates
@@ -25,7 +26,7 @@ void testGDALTiler(const std::string& wroFilePath, const std::string& executable
             std::filesystem::remove_all(tileDir);
             std::cout << "Removed existing tile directory: " << tileDir.string() << std::endl;
         }
-        
+
         std::filesystem::create_directories(tileDir);
 
         // Use wro.tif as ortho input file
@@ -112,19 +113,20 @@ int main() {
 
     if (std::filesystem::exists(wroFilePath)) {
         auto result = GeotiffAnalyzer::analyzeFile(wroFilePath);
-
         // Test GDALTiler functionality
         testGDALTiler(wroFilePath, executableDir);
-    } else {
-        std::cout << "\nWarning: wro.tif not found at: " << wroFilePath << std::endl;
-        std::cout << "Looking for wro.tif in current directory..." << std::endl;
 
-        if (std::filesystem::exists("wro.tif")) {
-            auto result = GeotiffAnalyzer::analyzeFile("wro.tif");
-            testGDALTiler("wro.tif", ".");
+        ddb::generateImageThumb(wroFilePath, 256, "thumb.webp", nullptr, nullptr);
+
+        if (!fs::exists("thumb.webp")) {
+            std::cout << "Thumbnail generation failed" << std::endl;
         } else {
-            std::cout << "wro.tif not found in current directory either." << std::endl;
+            std::cout << "Thumbnail generated successfully: thumb.webp" << std::endl;
         }
+
+
+    } else {
+        std::cout << "wro.tif not found in current directory" << std::endl;
     }
 
     return 0;

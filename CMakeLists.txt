@@ -68,6 +68,7 @@ set(SOURCES
     src/system_info.cpp
     src/gdaltiler.cpp
     src/tiler.cpp
+    src/thumbs.cpp
 )
 
 # Define header files for IDE organization
@@ -81,6 +82,7 @@ set(HEADERS
     src/gdal_inc.h
     src/gdaltiler.h
     src/tiler.h
+    src/thumbs.h
 )
 
 add_executable(${PROJECT_NAME}cmd ${SOURCES} ${HEADERS})

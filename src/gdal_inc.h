@@ -6,3 +6,4 @@
 #include <ogr_spatialref.h>
 #include <gdalwarper.h>
 #include <gdal_alg.h>
+#include <gdal_utils.h>
