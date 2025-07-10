@@ -3,25 +3,35 @@ stages:
   - test
 
 variables:
-  # Use the official Microsoft C++ build tools image
   CMAKE_BUILD_TYPE: "Release"
   VCPKG_ROOT: "/vcpkg"
 
-# Use Windows container with Visual Studio Build Tools
-image: mcr.microsoft.com/windows/servercore:ltsc2022
+# Default Windows build configuration
+.windows_template: &windows_template
+  # Use Windows container with Visual Studio Build Tools
+  image: mcr.microsoft.com/windows/servercore:ltsc2022
+  before_script:
+    # Install chocolatey for package management
+    - Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    # Install git, cmake, and Visual Studio Build Tools
+    - choco install -y git cmake visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools"
+    # Install vcpkg
+    - git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+    - C:\vcpkg\bootstrap-vcpkg.bat
+    - $env:VCPKG_ROOT = "C:\vcpkg"
+    - $env:PATH += ";C:\vcpkg"
 
-before_script:
-  # Install chocolatey for package management
-  - Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-  # Install git, cmake, and Visual Studio Build Tools
-  - choco install -y git cmake visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools"
-  # Install vcpkg
-  - git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
-  - C:\vcpkg\bootstrap-vcpkg.bat
-  - $env:VCPKG_ROOT = "C:\vcpkg"
-  - $env:PATH += ";C:\vcpkg"
+# Linux build configuration (alternative)
+.linux_template: &linux_template
+  image: ubuntu:22.04
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git curl zip unzip tar cmake build-essential pkg-config
+    - git clone https://github.com/Microsoft/vcpkg.git /vcpkg
+    - /vcpkg/bootstrap-vcpkg.sh
+    - export VCPKG_ROOT=/vcpkg
 
-build:
+build_windows:
+  <<: *windows_template
   stage: build
   script:
     # Configure the project with vcpkg
@@ -37,10 +47,11 @@ build:
     - main
     - merge_requests
 
-test:
+test_windows:
+  <<: *windows_template
   stage: test
   dependencies:
-    - build
+    - build_windows
   script:
     # Change to build directory and run the test
     - cd build\Release
@@ -59,30 +70,36 @@ test:
     - main
     - merge_requests
 
-# Alternative Linux-based CI (commented out, uncomment if needed)
-# image: ubuntu:22.04
-# 
-# before_script:
-#   - apt-get update -qq && apt-get install -y -qq git curl zip unzip tar cmake build-essential pkg-config
-#   - git clone https://github.com/Microsoft/vcpkg.git /vcpkg
-#   - /vcpkg/bootstrap-vcpkg.sh
-#   - export VCPKG_ROOT=/vcpkg
-#
-# build_linux:
-#   stage: build
-#   script:
-#     - cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
-#     - cmake --build build --config Release
-#   artifacts:
-#     paths:
-#       - build/Release/
-#     expire_in: 1 hour
-#
-# test_linux:
-#   stage: test
-#   dependencies:
-#     - build_linux
-#   script:
-#     - cd build/Release
-#     - ls -la
-#     - ./testcmd
+# Linux alternative (uncomment to use Linux instead of Windows)
+build_linux:
+  <<: *linux_template
+  stage: build
+  script:
+    - cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
+    - cmake --build build --config Release
+  artifacts:
+    paths:
+      - build/Release/
+    expire_in: 1 hour
+  when: manual
+  only:
+    - master
+    - main
+    - merge_requests
+
+test_linux:
+  <<: *linux_template
+  stage: test
+  dependencies:
+    - build_linux
+  script:
+    - cd build/Release
+    - ls -la
+    - echo "Running GDAL-PROJ test..."
+    - ./testcmd
+    - echo "Test completed successfully!"
+  when: manual
+  only:
+    - master
+    - main
+    - merge_requests
