@@ -60,22 +60,27 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Define source files
 set(SOURCES
     main.cpp
-    hash.cpp
+    src/hash.cpp
     src/platform_utils.cpp
     src/gdal_manager.cpp
     src/coordinate_transform.cpp
     src/geotiff_analyzer.cpp
     src/system_info.cpp
+    src/gdaltiler.cpp
+    src/tiler.cpp
 )
 
 # Define header files for IDE organization
 set(HEADERS
-    hash.h
+    src/hash.h
     src/platform_utils.h
     src/gdal_manager.h
     src/coordinate_transform.h
     src/geotiff_analyzer.h
     src/system_info.h
+    src/gdal_inc.h
+    src/gdaltiler.h
+    src/tiler.h
 )
 
 add_executable(${PROJECT_NAME}cmd ${SOURCES} ${HEADERS})

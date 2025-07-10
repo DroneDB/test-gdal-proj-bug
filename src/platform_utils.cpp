@@ -1,5 +1,5 @@
 #include "platform_utils.h"
-#include "../hash.h"
+#include "hash.h"
 #include <iostream>
 #include <cstdlib>
 #include <clocale>
