@@ -17,7 +17,7 @@ Coordinate convertRasterToGeographic(OGRCoordinateTransformationH hTransform,
     if (OCTTransform(hTransform, 1, &geoX, &geoY, nullptr) == TRUE) {
         // Note: OCTTransform with OAMS_AUTHORITY_COMPLIANT returns lat,lon instead of lon,lat
         // So geoX is latitude and geoY is longitude
-        return {geoY, geoX}; // longitude, latitude
+        return {geoX, geoY}; // longitude, latitude
     } else {
         std::cout << "Warning: Coordinate transformation failed for pixel ("
                   << pixelX << ", " << pixelY << ")" << std::endl;

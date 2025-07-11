@@ -48,6 +48,8 @@ void initialize() {
     GDALAllRegister();
     //primeProjectionSystem();
 
+    CPLSetConfigOption("OGR_CT_FORCE_TRADITIONAL_GIS_ORDER", "YES");
+
     std::cout << "GDAL and PROJ initialization completed" << std::endl;
 }
 

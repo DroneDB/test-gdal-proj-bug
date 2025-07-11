@@ -101,7 +101,7 @@ CoordinateTransform::GeographicEntry analyzeFile(const std::string& filepath) {
 
                 std::cout << "OSRImportFromEPSG result: Success" << std::endl;
 
-                OSRSetAxisMappingStrategy(hWgs84, OSRAxisMappingStrategy::OAMS_AUTHORITY_COMPLIANT);
+                OSRSetAxisMappingStrategy(hWgs84, OSRAxisMappingStrategy::OAMS_TRADITIONAL_GIS_ORDER);
                 std::cout << "Set dest axis mapping strategy" << std::endl;
 
                 OGRCoordinateTransformationH hTransform = OCTNewCoordinateTransformation(hSrs, hWgs84);
@@ -111,16 +111,16 @@ CoordinateTransform::GeographicEntry analyzeFile(const std::string& filepath) {
                     std::cout << "Computing corner coordinates" << std::endl;
 
                     auto ul = CoordinateTransform::convertRasterToGeographic(hTransform, geotransform, 0.0, 0.0);
-                    std::cout << "Upper Left: " << ul.latitude << ", " << ul.longitude << std::endl;
+                    std::cout << "Upper Left: " << ul.longitude << ", " << ul.latitude << std::endl;
 
                     auto ur = CoordinateTransform::convertRasterToGeographic(hTransform, geotransform, width, 0);
-                    std::cout << "Upper Right: " << ur.latitude << ", " << ur.longitude << std::endl;
+                    std::cout << "Upper Right: " << ur.longitude << ", " << ur.latitude << std::endl;
 
                     auto lr = CoordinateTransform::convertRasterToGeographic(hTransform, geotransform, width, height);
-                    std::cout << "Lower Right: " << lr.latitude << ", " << lr.longitude << std::endl;
+                    std::cout << "Lower Right: " << lr.longitude << ", " << lr.latitude << std::endl;
 
                     auto ll = CoordinateTransform::convertRasterToGeographic(hTransform, geotransform, 0.0, height);
-                    std::cout << "Lower Left: " << ll.latitude << ", " << ll.longitude << std::endl;
+                    std::cout << "Lower Left: " << ll.longitude << ", " << ll.latitude << std::endl;
 
                     std::cout << "Adding points to polygon geometry" << std::endl;
                     entry.polygon_geometry.push_back({ul.longitude, ul.latitude});
