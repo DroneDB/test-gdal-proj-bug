@@ -101,8 +101,8 @@ CoordinateTransform::GeographicEntry analyzeFile(const std::string& filepath) {
 
                 std::cout << "OSRImportFromEPSG result: Success" << std::endl;
 
-                OSRSetAxisMappingStrategy(hWgs84, OSRAxisMappingStrategy::OAMS_TRADITIONAL_GIS_ORDER);
-                std::cout << "Set dest axis mapping strategy" << std::endl;
+                //OSRSetAxisMappingStrategy(hWgs84, OSRAxisMappingStrategy::OAMS_TRADITIONAL_GIS_ORDER);
+                //std::cout << "Set dest axis mapping strategy" << std::endl;
 
                 OGRCoordinateTransformationH hTransform = OCTNewCoordinateTransformation(hSrs, hWgs84);
                 std::cout << "Created coordinate transformation: " << (hTransform != nullptr ? "Success" : "Failed") << std::endl;
