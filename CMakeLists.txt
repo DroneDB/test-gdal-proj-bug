@@ -91,6 +91,7 @@ add_executable(${PROJECT_NAME}cmd ${SOURCES} ${HEADERS})
 find_package(Threads REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(PROJ CONFIG REQUIRED)
+#find_package(PDAL CONFIG REQUIRED)
 find_package(GeoTIFF CONFIG REQUIRED)
 find_package(unofficial-hash-library CONFIG REQUIRED)
 
@@ -101,6 +102,7 @@ set(COMMON_LIBS
     GDAL::GDAL
     PROJ::proj
     unofficial::hash-library
+    #${PDAL_LIBRARIES}
 )
 
 # Link libraries to the executable

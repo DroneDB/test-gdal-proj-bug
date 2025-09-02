@@ -1,52 +1,17 @@
 {
   "name": "test-gdal-proj-bug",
   "version": "1.0.0",
-  "builtin-baseline": "efcfaaf60d7ec57a159fc3110403d939bfb69729",
   "dependencies": [
-    "boolinq",
-    "cctz",
-    {
-      "name": "cpr",
-      "features": [
-        "ssl"
-      ]
-    },
-    "cxxopts",
-    {
-      "name": "exiv2",
-      "features": [
-        "bmff",
-        "png",
-        "xmp"
-      ]
-    },
     {
       "name": "gdal",
       "features": [
         "libkml"
       ]
     },
-    "gtest",
     "hash-library",
-    "laszip",
     "libgeotiff",
-    "libspatialite",
-    "libzip",
-    {
-      "name": "nlohmann-json",
-      "version>=": "3.11.3"
-    },
-    "pdal",
-    "plog",
     "proj",
-    {
-      "name": "qt5",
-      "default-features": false,
-      "features": [
-        "imageformats"
-      ]
-    },
-    "sqlite3",
-    "zlib"
-  ]
+    "pdal"
+  ],
+  "builtin-baseline": "b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01"
 }

@@ -7,48 +7,20 @@
 
 namespace GdalManager {
 
-void primeProjectionSystem() {
-    // Initialize PROJ structures to prevent axis mapping issues
-    // This ensures PROJ database and axis mapping strategies are properly initialized
-    std::cout << "Initializing PROJ coordinate transformation system" << std::endl;
-
-    // Create a simple coordinate transformation to initialize PROJ internal structures
-    OGRSpatialReferenceH hSrcSRS = OSRNewSpatialReference(nullptr);
-    OGRSpatialReferenceH hDstSRS = OSRNewSpatialReference(nullptr);
-
-    if (hSrcSRS && hDstSRS) {
-        // Import EPSG:4326 (WGS84)
-        if (OSRImportFromEPSG(hSrcSRS, 4326) == OGRERR_NONE) {
-            // Import a UTM zone (example: UTM Zone 15N)
-            if (OSRImportFromProj4(hDstSRS, "+proj=utm +zone=15 +datum=WGS84 +units=m +no_defs") == OGRERR_NONE) {
-                // Create transformation to force PROJ initialization
-                OGRCoordinateTransformationH hTransform = OCTNewCoordinateTransformation(hSrcSRS, hDstSRS);
-                if (hTransform) {
-                    // Perform a dummy transformation to initialize internal structures
-                    double y = -91.0, x = 46.0;
-
-                    if (OCTTransform(hTransform, 1, &x, &y, nullptr) != TRUE) {
-                        std::cout << "Warning: Coordinate transformation failed, but PROJ "
-                                  "initialization may still be successful" << std::endl;
-                    }
-
-                    OCTDestroyCoordinateTransformation(hTransform);
-                    std::cout << "PROJ initialization completed successfully" << std::endl;
-                }
-            }
-        }
-        OSRDestroySpatialReference(hSrcSRS);
-        OSRDestroySpatialReference(hDstSRS);
-    }
-}
-
 void initialize() {
     std::cout << "Initializing GDAL and PROJ libraries" << std::endl;
 
     GDALAllRegister();
-    //primeProjectionSystem();
 
     CPLSetConfigOption("OGR_CT_FORCE_TRADITIONAL_GIS_ORDER", "YES");
+    //CPLSetConfigOption("PROJ_NETWORK", "ON");
+    //CPLSetConfigOption("CPL_DEBUG", "ON");
+    //CPLSetConfigOption("CPL_LOG", "gdal.log");
+    //CPLSetConfigOption("CPL_LOG_ERRORS", "ON");
+    //CPLSetConfigOption("CPL_TIMESTAMP", "ON");
+
+    // SET PROJ_DEBUG to "ON"
+    //CPLSetConfigOption("PROJ_DEBUG", "ON");
 
     std::cout << "GDAL and PROJ initialization completed" << std::endl;
 }

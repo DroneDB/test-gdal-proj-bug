@@ -13,6 +13,39 @@ namespace fs = std::filesystem;
 namespace ddb
 {
 
+    bool GDALTiler::hasGeoreference(const GDALDatasetH& dataset)
+    {
+        double geo[6] = { 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 };
+        if (GDALGetGeoTransform(dataset, geo) != CE_None)
+            throw GDALException("Cannot fetch geotransform in hasGeoreference");
+
+        return (geo[0] != 0.0 || geo[1] != 1.0 || geo[2] != 0.0 || geo[3] != 0.0 ||
+            geo[4] != 0.0 || geo[5] != 1.0) ||
+            GDALGetGCPCount(dataset) != 0;
+    }
+
+    bool GDALTiler::sameProjection(const OGRSpatialReferenceH& a,
+        const OGRSpatialReferenceH& b)
+    {
+        char* aProj = nullptr;
+        char* bProj = nullptr;
+
+        if (OSRExportToProj4(a, &aProj) != CE_None)
+            throw GDALException("Cannot export proj4");
+        if (OSRExportToProj4(b, &bProj) != CE_None)
+        {
+            CPLFree(aProj);
+            throw GDALException("Cannot export proj4");
+        }
+
+        bool result = std::string(aProj) == std::string(bProj);
+
+        CPLFree(aProj);
+        CPLFree(bProj);
+
+        return result;
+    }
+
     GDALTiler::GDALTiler(const std::string& inputPath, const std::string& outputPath,
         int tileSize, bool tms)
         : Tiler(inputPath, outputPath, tileSize, tms), inputPath(inputPath)
@@ -55,7 +88,7 @@ namespace ddb
         if (OSRImportFromWkt(inputSrs, &wktp) != OGRERR_NONE)
             throw GDALException("Cannot read spatial reference system for " + openPath + ". Is PROJ available?");
 
-        OSRSetAxisMappingStrategy(inputSrs, OSRAxisMappingStrategy::OAMS_TRADITIONAL_GIS_ORDER);
+        // OSRSetAxisMappingStrategy(inputSrs, OSRAxisMappingStrategy::OAMS_TRADITIONAL_GIS_ORDER);
 
         // Setup output SRS
         const OGRSpatialReferenceH outputSrs = OSRNewSpatialReference(nullptr);
@@ -115,17 +148,6 @@ namespace ddb
         std::cout << "Num bands: " << nBands << std::endl;
     }
 
-    bool GDALTiler::hasGeoreference(const GDALDatasetH& dataset)
-    {
-        double geo[6] = { 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 };
-        if (GDALGetGeoTransform(dataset, geo) != CE_None)
-            throw GDALException("Cannot fetch geotransform in hasGeoreference");
-
-        return (geo[0] != 0.0 || geo[1] != 1.0 || geo[2] != 0.0 || geo[3] != 0.0 ||
-            geo[4] != 0.0 || geo[5] != 1.0) ||
-            GDALGetGCPCount(dataset) != 0;
-    }
-
     GDALDatasetH GDALTiler::createWarpedVRT(const GDALDatasetH& src,
         const OGRSpatialReferenceH& srs,
         GDALResampleAlg resampling)
@@ -176,28 +198,6 @@ namespace ddb
         return nullptr;
     }
 
-    bool GDALTiler::sameProjection(const OGRSpatialReferenceH& a,
-        const OGRSpatialReferenceH& b)
-    {
-        char* aProj = nullptr;
-        char* bProj = nullptr;
-
-        if (OSRExportToProj4(a, &aProj) != CE_None)
-            throw GDALException("Cannot export proj4");
-        if (OSRExportToProj4(b, &bProj) != CE_None)
-        {
-            CPLFree(aProj);
-            throw GDALException("Cannot export proj4");
-        }
-
-        bool result = std::string(aProj) == std::string(bProj);
-
-        CPLFree(aProj);
-        CPLFree(bProj);
-
-        return result;
-    }
-
     int GDALTiler::dataBandsCount(const GDALDatasetH& dataset)
     {
         const GDALRasterBandH raster = GDALGetRasterBand(dataset, 1);
@@ -220,48 +220,99 @@ namespace ddb
             GDALClose(inputDataset);
     }
 
-    GQResult GDALTiler::geoQuery(GDALDatasetH ds, double ulx, double uly, double lrx, double lry, int querySize)
+    GQResult GDALTiler::geoQuery(GDALDatasetH ds, double ulx, double uly, double lrx,
+                                 double lry, int querySize)
     {
-        // Simplified geoQuery implementation
-        GQResult result;
+        GQResult o;
+        double geo[6];
+        if (GDALGetGeoTransform(ds, geo) != CE_None)
+            throw GDALException("Cannot fetch geotransform geo");
 
-        // Get dataset dimensions
-        int rasterXSize = GDALGetRasterXSize(ds);
-        int rasterYSize = GDALGetRasterYSize(ds);
+        // Check for division by zero
+        if (std::abs(geo[1]) < std::numeric_limits<double>::epsilon() ||
+            std::abs(geo[5]) < std::numeric_limits<double>::epsilon())
+        {
+            throw GDALException("Invalid geotransform: pixel size is zero");
+        }
 
-        // Get geotransform
-        double geotransform[6];
-        if (GDALGetGeoTransform(ds, geotransform) != CE_None)
-            throw GDALException("Cannot get geotransform");
+        o.r.x = static_cast<int>((ulx - geo[0]) / geo[1] + 0.001);
+        o.r.y = static_cast<int>((uly - geo[3]) / geo[5] + 0.001);
+        o.r.xsize = static_cast<int>((lrx - ulx) / geo[1] + 0.5);
+        o.r.ysize = static_cast<int>((lry - uly) / geo[5] + 0.5);
 
-        // Simple pixel coordinate calculation
-        double geoWidth = geotransform[1];
-        double geoHeight = geotransform[5];
+        if (querySize == 0)
+        {
+            o.w.xsize = o.r.xsize;
+            o.w.ysize = o.r.ysize;
+        }
+        else
+        {
+            o.w.xsize = querySize;
+            o.w.ysize = querySize;
+        }
 
-        // Calculate pixel coordinates
-        int x1 = (int)((ulx - geotransform[0]) / geoWidth);
-        int y1 = (int)((uly - geotransform[3]) / geoHeight);
-        int x2 = (int)((lrx - geotransform[0]) / geoWidth);
-        int y2 = (int)((lry - geotransform[3]) / geoHeight);
+        o.w.x = 0;
+        if (o.r.x < 0)
+        {
+            const int rxShift = std::abs(o.r.x);
+            if (o.r.xsize > 0)
+            {
+                o.w.x = static_cast<int>(o.w.xsize * (static_cast<double>(rxShift) /
+                                                      static_cast<double>(o.r.xsize)));
+                o.w.xsize = o.w.xsize - o.w.x;
+                o.r.xsize =
+                    o.r.xsize -
+                    static_cast<int>(o.r.xsize * (static_cast<double>(rxShift) /
+                                                  static_cast<double>(o.r.xsize)));
+            }
+            o.r.x = 0;
+        }
 
-        // Clamp to raster bounds
-        x1 = std::max(0, std::min(x1, rasterXSize));
-        y1 = std::max(0, std::min(y1, rasterYSize));
-        x2 = std::max(0, std::min(x2, rasterXSize));
-        y2 = std::max(0, std::min(y2, rasterYSize));
+        const int rasterXSize = GDALGetRasterXSize(ds);
+        const int rasterYSize = GDALGetRasterYSize(ds);
 
-        result.r.x = x1;
-        result.r.y = y1;
-        result.r.xsize = x2 - x1;
-        result.r.ysize = y2 - y1;
+        if (o.r.x + o.r.xsize > rasterXSize)
+        {
+            if (o.r.xsize > 0)
+            {
+                o.w.xsize = static_cast<int>(
+                    o.w.xsize *
+                    (static_cast<double>(rasterXSize) - static_cast<double>(o.r.x)) /
+                    static_cast<double>(o.r.xsize));
+            }
+            o.r.xsize = rasterXSize - o.r.x;
+        }
 
-        // Window coordinates (simplified)
-        result.w.x = 0;
-        result.w.y = 0;
-        result.w.xsize = querySize ? querySize : result.r.xsize;
-        result.w.ysize = querySize ? querySize : result.r.ysize;
+        o.w.y = 0;
+        if (o.r.y < 0)
+        {
+            const int ryShift = std::abs(o.r.y);
+            if (o.r.ysize > 0)
+            {
+                o.w.y = static_cast<int>(o.w.ysize * (static_cast<double>(ryShift) /
+                                                      static_cast<double>(o.r.ysize)));
+                o.w.ysize = o.w.ysize - o.w.y;
+                o.r.ysize =
+                    o.r.ysize -
+                    static_cast<int>(o.r.ysize * (static_cast<double>(ryShift) /
+                                                  static_cast<double>(o.r.ysize)));
+            }
+            o.r.y = 0;
+        }
 
-        return result;
+        if (o.r.y + o.r.ysize > rasterYSize)
+        {
+            if (o.r.ysize > 0)
+            {
+                o.w.ysize = static_cast<int>(
+                    o.w.ysize *
+                    (static_cast<double>(rasterYSize) - static_cast<double>(o.r.y)) /
+                    static_cast<double>(o.r.ysize));
+            }
+            o.r.ysize = rasterYSize - o.r.y;
+        }
+
+        return o;
     }
 
     template <typename T>
