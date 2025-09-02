@@ -83,12 +83,21 @@ make -j$(nproc)
 ### Working Configuration (Correct Output)
 To see the correct behavior, comment out the following lines in `CMakeLists.txt`:
 ```cmake
-# find_package(PDAL CONFIG REQUIRED)
+find_package(PDAL CONFIG REQUIRED)
 ```
-Remove `pdalcpp` from `target_link_libraries`
+in the same file, remove `pdalcpp` from `target_link_libraries`
 
-Remove `#include <pdal/pdal_features.hpp>` from `src/system_info.cpp`
-Remove `std::cout << "PDAL: " << pdal::pdalVersion << std::endl;` from `printVersions` function in `src/system_info.cpp`
+In `src/system_info.cpp` remove:
+
+```cpp
+#include <pdal/pdal_features.hpp>
+```
+
+and in function `printVersions` remove:
+
+```cpp
+std::cout << "PDAL: " << pdal::pdalVersion << std::endl;
+```
 
 Then rebuild and run. You should see coordinates like:
 ```
