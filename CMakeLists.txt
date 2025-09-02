@@ -93,16 +93,6 @@ find_package(PDAL CONFIG REQUIRED)
 find_package(GeoTIFF CONFIG REQUIRED)
 find_package(unofficial-hash-library CONFIG REQUIRED)
 
-# Robust selection of PDAL and GeoTIFF targets
-set(PDAL_TARGET "")
-if(TARGET PDAL::pdalcpp)
-  set(PDAL_TARGET PDAL::pdalcpp)
-elseif(TARGET pdalcpp)
-  set(PDAL_TARGET pdalcpp)
-else()
-  message(FATAL_ERROR "Cannot find PDAL::pdalcpp / pdalcpp target")
-endif()
-
 # Link (always use PRIVATE/PUBLIC)
 target_link_libraries(${PROJECT_NAME}cmd PRIVATE
     Threads::Threads
