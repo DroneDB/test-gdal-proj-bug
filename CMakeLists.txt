@@ -89,7 +89,9 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${SOURCES} ${HEADERS})
 find_package(Threads REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(PROJ CONFIG REQUIRED)
-find_package(PDAL CONFIG REQUIRED)
+if(HAVE_PDAL)
+    find_package(PDAL CONFIG REQUIRED)
+endif()
 find_package(GeoTIFF CONFIG REQUIRED)
 find_package(unofficial-hash-library CONFIG REQUIRED)
 
@@ -98,10 +100,18 @@ target_link_libraries(${PROJECT_NAME}cmd PRIVATE
     Threads::Threads
     GDAL::GDAL
     PROJ::proj
-    pdalcpp
     ${GEOTIFF_LIBRARIES}
     unofficial::hash-library
 )
+
+# Link PDAL conditionally
+if(HAVE_PDAL)
+    target_link_libraries(${PROJECT_NAME}cmd PRIVATE pdalcpp)
+    target_compile_definitions(${PROJECT_NAME}cmd PRIVATE HAVE_PDAL)
+    message(STATUS "PDAL support enabled - coordinate transformation issues may occur")
+else()
+    message(STATUS "PDAL support disabled - testing without PDAL")
+endif()
 
 target_include_directories(${PROJECT_NAME}cmd PRIVATE ${GEOTIFF_INCLUDE_DIR})
 
@@ -117,8 +127,9 @@ if(WIN32)
   )
 endif()
 
-# ---- PROJ data and example files ----
+# ---- Build Options ----
 
+option(HAVE_PDAL "Enable PDAL support (can cause coordinate transformation issues)" ON)
 option(DEV_COPY_PROJ_DATA "Copy PROJ data near executable for runs from build dir" ON)
 
 # Find PROJ data folder (vcpkg: share/proj or share/proj4)

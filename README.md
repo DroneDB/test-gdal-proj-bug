@@ -56,6 +56,16 @@ git submodule update --init --recursive
 ```
 
 ### Step 2: Configure Build
+
+#### Build Options
+
+The project provides a configurable PDAL integration option:
+
+- **`HAVE_PDAL`** (default: `ON`): Controls whether PDAL is linked with the application
+  - `ON`: Links PDAL (reproduces the coordinate transformation bug)
+  - `OFF`: Builds without PDAL (demonstrates correct coordinate behavior)
+
+#### Basic Configuration (with PDAL - reproduces bug)
 ```bash
 export VCPKG_ROOT="$(pwd)/vcpkg"
 ./vcpkg/bootstrap-vcpkg.sh
@@ -63,7 +73,18 @@ mkdir -p build
 cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE="../vcpkg/scripts/buildsystems/vcpkg.cmake" \
          -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_BUILD_TESTING=ON
+         -DHAVE_PDAL=ON
+```
+
+#### Alternative Configuration (without PDAL - correct behavior)
+```bash
+export VCPKG_ROOT="$(pwd)/vcpkg"
+./vcpkg/bootstrap-vcpkg.sh
+mkdir -p build
+cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE="../vcpkg/scripts/buildsystems/vcpkg.cmake" \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DHAVE_PDAL=OFF
 ```
 
 ### Step 3: Build
@@ -76,9 +97,57 @@ make -j$(nproc)
 ./testcmd
 ```
 
+## Configuration Options
+
+### HAVE_PDAL Flag
+
+The `HAVE_PDAL` CMake option controls whether PDAL is linked with the application:
+
+- **Default**: `ON` (reproduces the coordinate transformation bug)
+- **Alternative**: `OFF` (demonstrates correct coordinate behavior without PDAL)
+
+This flag provides an easy way to test the difference in behavior with and without PDAL linked, helping to isolate the coordinate transformation issue.
+
+**Usage:**
+```bash
+# Build with PDAL (shows bug)
+cmake .. -DHAVE_PDAL=ON
+
+# Build without PDAL (correct behavior)
+cmake .. -DHAVE_PDAL=OFF
+```
+
+When `HAVE_PDAL=OFF`, the application will output "PDAL: Not linked (testing without PDAL)" in the version information.
+
 ## Bug Reproduction
 
-### Working Configuration (Correct Output)
+### Method 1: Using Build Configuration (Recommended)
+
+#### Buggy Configuration (with PDAL linked)
+Build with PDAL enabled (default behavior):
+```bash
+cmake .. -DCMAKE_TOOLCHAIN_FILE="../vcpkg/scripts/buildsystems/vcpkg.cmake" \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DHAVE_PDAL=ON
+make -j$(nproc)
+./testcmd
+```
+
+#### Working Configuration (correct behavior)
+Build without PDAL:
+```bash
+cmake .. -DCMAKE_TOOLCHAIN_FILE="../vcpkg/scripts/buildsystems/vcpkg.cmake" \
+         -DCMAKE_BUILD_TYPE=Release \
+         -DHAVE_PDAL=OFF
+make -j$(nproc)
+./testcmd
+```
+
+### Method 2: Manual Code Modification (Legacy)
+
+Alternatively, you can manually disable PDAL by editing the source code:
+
+#### Working Configuration (Correct Output)
 To see the correct behavior, comment out the following lines in `CMakeLists.txt`:
 ```cmake
 find_package(PDAL CONFIG REQUIRED)
@@ -97,17 +166,23 @@ and in function `printVersions` remove:
 std::cout << "PDAL: " << pdal::pdalVersion << std::endl;
 ```
 
-Then rebuild and run. You should see coordinates like:
+Then rebuild and run.
+
+### Expected Output Comparison
+
+#### Correct Output (HAVE_PDAL=OFF)
 ```
+PDAL: Not linked (testing without PDAL)
 Center point: 175.404, -41.0663
 Upper Left: 175.403, -41.0658
 Upper Right: 175.404, -41.0658
 Lower Right: 175.404, -41.0667
 Lower Left: 175.403, -41.0667
+✓ All coordinate checks passed
 ```
 
-### Buggy Configuration (Incorrect Output)
-With PDAL linked (default configuration), the coordinate transformation produces incorrect results.
+#### Buggy Output (HAVE_PDAL=ON)
+With PDAL linked, the coordinate transformation produces incorrect results due to missing axis swapping operations in the PROJ transformation pipeline.
 
 ## Technical Details
 
