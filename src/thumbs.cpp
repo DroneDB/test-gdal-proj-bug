@@ -97,10 +97,10 @@ namespace ddb
         int hasNoData;
         double srcNoData = GDALGetRasterNoDataValue(
             GDALGetRasterBand(hSrcDataset, 1),
-            &hasNoData); // Gestione delle bande: WebP supporta solo 3 (RGB) o 4 (RGBA) bande
+            &hasNoData); // Band management: WebP supports only 3 (RGB) or 4 (RGBA) bands
         if (hasNoData)
         {
-            // Con nodata, usiamo 4 bande (RGBA) per la trasparenza
+            // With nodata, we use 4 bands (RGBA) for transparency
             if (bandCount >= 3)
             {
                 targs = CSLAddString(targs, "-b");
@@ -111,18 +111,18 @@ namespace ddb
                 targs = CSLAddString(targs, "3");
             }
 
-            // Imposta il valore nodata sul dataset di destinazione
+            // Set nodata value on destination dataset
             targs = CSLAddString(targs, "-a_nodata");
             std::ostringstream oss;
             oss << std::fixed << std::setprecision(0) << srcNoData;
             targs = CSLAddString(targs, oss.str().c_str());
 
-            // Crea canale alpha dai valori nodata per trasparenza
+            // Create alpha channel from nodata values for transparency
             targs = CSLAddString(targs, "-dstalpha");
         }
         else
         {
-            // Senza nodata, usiamo solo 3 bande (RGB)
+            // Without nodata, we use only 3 bands (RGB)
             if (bandCount > 3)
             {
                 targs = CSLAddString(targs, "-b");
