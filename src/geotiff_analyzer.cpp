@@ -80,8 +80,8 @@ CoordinateTransform::GeographicEntry analyzeFile(const std::string& filepath) {
                 OGRErr importResult = OSRImportFromWkt(hSrs, &wktp);
                 std::cout << "OSRImportFromWkt result: " << (importResult == OGRERR_NONE ? "Success" : "Failed") << std::endl;
 
-                OSRSetAxisMappingStrategy(hSrs, OSRAxisMappingStrategy::OAMS_TRADITIONAL_GIS_ORDER);
-                std::cout << "Set source axis mapping strategy" << std::endl;
+                //OSRSetAxisMappingStrategy(hSrs, OSRAxisMappingStrategy::OAMS_TRADITIONAL_GIS_ORDER);
+                //std::cout << "Set source axis mapping strategy" << std::endl;
 
                 if (importResult != OGRERR_NONE) {
                     std::cout << "Failed to import WKT, cleaning up spatial references" << std::endl;
