@@ -1,20 +1,30 @@
-cmake_minimum_required(VERSION 3.16.3)
+cmake_minimum_required(VERSION 3.21.1)
 project(test LANGUAGES CXX C)
 
 # Enable C++17 standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_MESSAGE_LOG_LEVEL VERBOSE)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-message(STATUS "CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
+# LTO/IPO in Release (if supported)
+if(POLICY CMP0069)
+  cmake_policy(SET CMP0069 NEW)
+endif()
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_ok OUTPUT ipo_msg)
+if(ipo_ok)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+endif()
 
-# Set default build type if not specified
-if(NOT CMAKE_BUILD_TYPE)
-    message(STATUS "Setting build type to 'Release' as none was specified.")
-    set(CMAKE_BUILD_TYPE Release)
-else()
-    message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Binary dir: ${CMAKE_BINARY_DIR}")
+
+# Build type: only for single-config generators
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  message(STATUS "Setting build type to 'Release' (single-config generator).")
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
 set(OUTPUT_DIR "${CMAKE_BINARY_DIR}")
@@ -23,39 +33,14 @@ set(OUTPUT_DIR "${CMAKE_BINARY_DIR}")
 set(SUPPORT_DIR "${CMAKE_BINARY_DIR}")
 message(STATUS "Using support directory: ${SUPPORT_DIR}")
 
-# Use vcpkg manifest mode
-if(DEFINED ENV{VCPKG_ROOT})
-    file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}" VCPKG_ROOT)
-    set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
-    message(STATUS "Using vcpkg from VCPKG_ROOT: ${VCPKG_ROOT}")
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed")
-    message(STATUS "Using vcpkg manifest mode from existing installation")
+# Warning level cross-platform
+if(MSVC)
+  add_compile_options(/W4)
 else()
-    message(STATUS "vcpkg is not detected via VCPKG_ROOT or manifest, trying system installation")
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Determine platform-specific triplet if not already set
-if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-    if(WIN32)
-        set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg triplet")
-    elseif(APPLE)
-        set(VCPKG_TARGET_TRIPLET "x64-osx" CACHE STRING "vcpkg triplet")
-    elseif(UNIX)
-        set(VCPKG_TARGET_TRIPLET "x64-linux" CACHE STRING "vcpkg triplet")
-    else()
-        message(WARNING "Unknown platform, using x64-windows as default triplet")
-        set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg triplet")
-    endif()
-endif()
 message(STATUS "Using vcpkg triplet: ${VCPKG_TARGET_TRIPLET}")
-
-# On Windows, define _WINSOCKAPI_ to avoid including winsock.h in windows.h
-if(WIN32)
-    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
-endif()
-
-# Consider position-independent code for all targets (especially for shared libs)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Define source files
 set(SOURCES
@@ -87,42 +72,91 @@ set(HEADERS
 
 add_executable(${PROJECT_NAME}cmd ${SOURCES} ${HEADERS})
 
+# Use C++17 features (alternative to CMAKE_CXX_STANDARD)
+target_compile_features(${PROJECT_NAME}cmd PRIVATE cxx_std_17)
+
+# Windows definitions
+if(WIN32)
+  target_compile_definitions(${PROJECT_NAME}cmd PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+  # Add _WINSOCKAPI_ if really necessary:
+  # target_compile_definitions(${PROJECT_NAME}cmd PRIVATE _WINSOCKAPI_)
+endif()
+
+# Folder structure in IDE
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${SOURCES} ${HEADERS})
+
 # Find and link dependencies from vcpkg
 find_package(Threads REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(PROJ CONFIG REQUIRED)
-#find_package(PDAL CONFIG REQUIRED)
+find_package(PDAL CONFIG REQUIRED)
 find_package(GeoTIFF CONFIG REQUIRED)
 find_package(unofficial-hash-library CONFIG REQUIRED)
 
+# Robust selection of PDAL and GeoTIFF targets
+set(PDAL_TARGET "")
+if(TARGET PDAL::pdalcpp)
+  set(PDAL_TARGET PDAL::pdalcpp)
+elseif(TARGET pdalcpp)
+  set(PDAL_TARGET pdalcpp)
+else()
+  message(FATAL_ERROR "Cannot find PDAL::pdalcpp / pdalcpp target")
+endif()
 
-# Common libraries
-set(COMMON_LIBS
+# Link (always use PRIVATE/PUBLIC)
+target_link_libraries(${PROJECT_NAME}cmd PRIVATE
     Threads::Threads
     GDAL::GDAL
     PROJ::proj
+    pdalcpp
+    ${GEOTIFF_LIBRARIES}
     unofficial::hash-library
-    #${PDAL_LIBRARIES}
 )
 
-# Link libraries to the executable
-target_link_libraries(${PROJECT_NAME}cmd ${COMMON_LIBS})
+target_include_directories(${PROJECT_NAME}cmd PRIVATE ${GEOTIFF_INCLUDE_DIR})
 
-# Set PROJ directory based on platform
-if (WIN32)
-    set(PROJ_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/proj")
-else()
-    set(PROJ_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/proj4")
-    if(NOT EXISTS "${PROJ_DIR}/proj.db")
-        set(PROJ_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/proj")
-    endif()
+# Automatic copy of ALL required DLLs next to the executable (MSVC only).
+# Avoids endless manual chasing after gdal/proj/curl/zlib/etc.
+if(WIN32)
+  add_custom_command(TARGET ${PROJECT_NAME}cmd POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E echo "Staging runtime DLLs for ${PROJECT_NAME}cmd..."
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}cmd>
+            $<TARGET_FILE_DIR:${PROJECT_NAME}cmd>
+    COMMAND_EXPAND_LISTS
+  )
 endif()
 
-# Copy the necessary files to the binary directory after build
+# ---- PROJ data and example files ----
+
+option(DEV_COPY_PROJ_DATA "Copy PROJ data near executable for runs from build dir" ON)
+
+# Find PROJ data folder (vcpkg: share/proj or share/proj4)
+# Note: this search is best-effort for local development.
+find_path(PROJ_DATA_DIR
+  NAMES proj.db
+  HINTS
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/proj"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/proj4"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/proj"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/proj4"
+  PATH_SUFFIXES share/proj share/proj4
+)
+
+if(DEV_COPY_PROJ_DATA AND PROJ_DATA_DIR)
+  add_custom_command(TARGET ${PROJECT_NAME}cmd POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E echo "Copying PROJ data from ${PROJ_DATA_DIR}..."
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${PROJ_DATA_DIR}/proj.db"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}cmd>/proj.db"
+  )
+endif()
+
+# Copy example file
 add_custom_command(TARGET ${PROJECT_NAME}cmd POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "Copying proj.db and wro.tif to the executable directory..."
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJ_DIR}/proj.db" "$<TARGET_FILE_DIR:${PROJECT_NAME}cmd>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/wro.tif" "$<TARGET_FILE_DIR:${PROJECT_NAME}cmd>"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+          "${CMAKE_SOURCE_DIR}/wro.tif"
+          "$<TARGET_FILE_DIR:${PROJECT_NAME}cmd>/wro.tif"
 )
 
 # Final message
