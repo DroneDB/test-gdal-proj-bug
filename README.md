@@ -35,8 +35,16 @@ The test performs multiple operations on a GeoTIFF file (`wro.tif`) with EPSG:21
 - CMake 3.15+
 - GCC/Clang compiler
 - Git with submodule support
+- Curl
+- pkg-config
 
 **Note**: Currently tested only on Linux (Ubuntu). Windows compatibility not yet verified.
+
+- Install required packages:
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake git curl zip unzip tar pkg-config bison flex autoconf automake libtool python3 python3-pip python3-jinja2 python3-setuptools libsqlite3-dev
+```
 
 ### Step 1: Clone Repository
 ```bash
@@ -51,6 +59,8 @@ git submodule update --init --recursive
 
 ### Step 2: Configure Build
 ```bash
+export VCPKG_ROOT="$(pwd)/vcpkg"
+./vcpkg/bootstrap-vcpkg.sh
 mkdir -p build
 cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE="../vcpkg/scripts/buildsystems/vcpkg.cmake" \
