@@ -85,11 +85,7 @@ To see the correct behavior, comment out the following lines in `CMakeLists.txt`
 ```cmake
 # find_package(PDAL CONFIG REQUIRED)
 ```
-And remove `pdalcpp` from:
-```cmake
-target_link_libraries(testcmd PRIVATE gdal proj # pdalcpp
-)
-```
+And remove `pdalcpp` from `target_link_libraries`
 
 Then rebuild and run. You should see coordinates like:
 ```
@@ -150,7 +146,7 @@ Thumbnail generated successfully: thumb.webp
 - **PROJ**: 9.6.2
 - **PDAL**: Latest (when bug is triggered)
 
-## For Library Maintainers
+## Bug details
 
 This bug appears to be related to:
 1. **Library initialization order** when PDAL is present
@@ -163,11 +159,6 @@ This bug appears to be related to:
 - Verify if PROJ's axis transformation pipeline generation is affected
 - Review whether GDAL's spatial reference handling changes with PDAL present
 - Investigate if coordinate system issues cascade to GDAL's raster processing operations (tiling, resampling, etc.)
-
-### Key Files to Examine
-- `main.cpp`: Complete test case with detailed debugging output
-- `CMakeLists.txt`: Minimal dependency configuration
-- `vcpkg.json`: Exact dependency versions
 
 ## Contact
 
