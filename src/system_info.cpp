@@ -5,6 +5,7 @@
 #include <clocale>
 #include <gdal.h>
 #include <proj.h>
+#include <pdal/pdal_features.hpp>
 
 namespace SystemInfo {
 
@@ -41,6 +42,8 @@ void printVersions() {
     std::cout << "PROJ_LIB = " << (getenv("PROJ_LIB") ? getenv("PROJ_LIB") : "(not set)") << std::endl;
     std::cout << "GDAL_DATA = " << (getenv("GDAL_DATA") ? getenv("GDAL_DATA") : "(not set)") << std::endl;
     std::cout << "PROJ_DATA = " << (getenv("PROJ_DATA") ? getenv("PROJ_DATA") : "(not set)") << std::endl;
+
+    std::cout << "PDAL: " << pdal::pdalVersion << std::endl;
 
     std::cout << "Current locale (LC_ALL): " << std::setlocale(LC_ALL, nullptr) << std::endl;
     std::cout << "Current locale (LC_CTYPE): " << std::setlocale(LC_CTYPE, nullptr) << std::endl;
