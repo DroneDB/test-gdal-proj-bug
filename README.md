@@ -35,8 +35,6 @@ The test performs multiple operations on a GeoTIFF file (`wro.tif`) with EPSG:21
 - CMake 3.15+
 - GCC/Clang compiler
 - Git with submodule support
-- Curl
-- pkg-config
 
 **Note**: Currently tested only on Linux (Ubuntu). Windows compatibility not yet verified.
 
@@ -156,7 +154,7 @@ Thumbnail generated successfully: thumb.webp
 
 - **GDAL**: 3.11.3
 - **PROJ**: 9.6.2
-- **PDAL**: Latest (when bug is triggered)
+- **PDAL**: 2.9.1
 
 ## Bug details
 
