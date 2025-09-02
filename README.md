@@ -40,7 +40,7 @@ The test performs multiple operations on a GeoTIFF file (`wro.tif`) with EPSG:21
 
 ### Step 1: Clone Repository
 ```bash
-git clone --recurse-submodules <repository-url>
+git clone --recurse-submodules https://github.com/DroneDB/test-gdal-proj-bug.git
 cd test-gdal-proj-bug
 ```
 
